@@ -1,62 +1,31 @@
 let display = document.getElementById("display");
-let keypad = document.getElementById("keypad");
-let battery = document.getElementById("battery");
+let keyboard = document.getElementById("keyboard");
 
 let state="home";
 let currentContact=null;
 let currentInput="";
-let batteryLevel=100;
 
 let contacts=[
- {name:"Message to self",id:"self",color:"#33ff66"},
- {name:"Getou Suguru",id:"getou",color:"#66ccff"},
- {name:"Misamichi Yaga",id:"yaga",color:"#ffcc66"}
+ {name:"Message to self",id:"self"},
+ {name:"Geto Suguru",id:"getou"},
+ {name:"Misamichi Yaga",id:"yaga"}
 ];
 
 let messages=JSON.parse(localStorage.getItem("keitaiMessages"));
 if(!messages){
  messages={
-  self:["Note: Buy charms.","Test message."],
-  getou:["Are you free later?"],
-  yaga:["Meeting at 10."]
+  Geto:[":)"],
+  yaga:["."]
  };
  localStorage.setItem("keitaiMessages",JSON.stringify(messages));
 }
 
 let snakeHigh=localStorage.getItem("snakeHigh")||0;
 
-let t9={
- "2":"ABC","3":"DEF","4":"GHI",
- "5":"JKL","6":"MNO","7":"PQRS",
- "8":"TUV","9":"WXYZ","0":" "
-};
-
-let lastKey=null;
-let tapIndex=0;
-let tapTimer=null;
-
-/* INIT */
-createKeys();
+createKeyboard();
 home();
-startClock();
 
-/* CLOCK */
-
-function startClock(){
- setInterval(()=>{
-  let now=new Date();
-  let time=now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-  let date=now.toLocaleDateString();
-  battery.innerText=time+" "+date+" | "+batteryLevel+"%";
- },1000);
-}
-
-/* SYSTEM */
-
-function drain(){
- batteryLevel--;
- if(batteryLevel<0) batteryLevel=0;
-}
+/* ---------- SYSTEM ---------- */
 
 function home(){
  state="home";
@@ -67,49 +36,78 @@ function home(){
  <br>High Score: ${snakeHigh}`;
 }
 
-function createKeys(){
- let keys=["1","2","3","4","5","6","7","8","9","*","0","#"];
- keys.forEach(k=>{
+/* ---------- KEYBOARD ---------- */
+
+function createKeyboard(){
+ keyboard.innerHTML="";
+ 
+ let letters="ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+ letters.forEach(l=>{
   let b=document.createElement("button");
-  b.innerText=k;
-  b.onclick=()=>handleKey(k);
-  keypad.appendChild(b);
+  b.innerText=l;
+  b.onclick=()=>press(l);
+  keyboard.appendChild(b);
  });
+
+ let space=document.createElement("button");
+ space.innerText="SPACE";
+ space.className="wide";
+ space.onclick=()=>press(" ");
+ keyboard.appendChild(space);
+
+ let back=document.createElement("button");
+ back.innerText="⌫";
+ back.className="wide";
+ back.onclick=backspace;
+ keyboard.appendChild(back);
+
+ let enter=document.createElement("button");
+ enter.innerText="ENTER";
+ enter.className="wide";
+ enter.onclick=enterPress;
+ keyboard.appendChild(enter);
 }
 
-function handleKey(k){
- drain();
+function press(char){
+ if(state==="chat"){
+  currentInput+=char;
+  renderChat();
+ }
+}
 
+function backspace(){
+ if(state==="chat"){
+  currentInput=currentInput.slice(0,-1);
+  renderChat();
+ }
+}
+
+function enterPress(){
  if(state==="home"){
-  if(k==="1") openContacts();
-  if(k==="2") openFiles();
-  if(k==="3") startSnake();
+  openContacts();
   return;
  }
 
  if(state==="contacts"){
-  let i=parseInt(k)-1;
-  if(contacts[i]) openChat(contacts[i]);
+  return;
  }
 
- if(state==="chat") handleT9(k);
+ if(state==="chat"){
+  send();
+ }
 }
 
-/* CONTACTS */
+/* ---------- CONTACTS ---------- */
 
 function openContacts(){
  state="contacts";
  display.innerHTML="";
  contacts.forEach((c,i)=>{
-  display.innerHTML+=
-   `<div class="list-item">
-      <div class="icon" style="background:${c.color}"></div>
-      ${i+1}: ${c.name}
-    </div>`;
+  display.innerHTML+=`${i+1}: ${c.name}<br>`;
  });
 }
 
-/* CHAT */
+/* ---------- CHAT ---------- */
 
 function openChat(contact){
  state="chat";
@@ -127,29 +125,6 @@ function renderChat(){
  display.innerHTML+="_ "+currentInput;
 }
 
-function handleT9(k){
- if(!t9[k]) return;
-
- if(lastKey===k){
-  tapIndex=(tapIndex+1)%t9[k].length;
-  currentInput=currentInput.slice(0,-1);
- }else{
-  tapIndex=0;
- }
-
- lastKey=k;
- currentInput+=t9[k][tapIndex];
-
- clearTimeout(tapTimer);
- tapTimer=setTimeout(()=>{lastKey=null;},800);
-
- renderChat();
-
- document.onkeydown=function(e){
-  if(e.key==="Enter") send();
- };
-}
-
 function send(){
  if(!currentInput) return;
 
@@ -162,24 +137,23 @@ function send(){
  renderChat();
 }
 
-function autoReply(contactId){
+function autoReply(id){
  setTimeout(()=>{
-  if(contactId==="getou"){
-   messages[contactId].push(":-)");
+  if(id==="getou"){
+   messages[id].push(":-)");
   }
-  else if(contactId==="yaga"){
-   messages[contactId].push("Noted.");
+  else if(id==="yaga"){
+   messages[id].push("Noted.");
   }
-  else if(contactId==="self"){
-   messages[contactId].push("Reminder saved.");
+  else{
+   messages[id].push("Saved.");
   }
-
   localStorage.setItem("keitaiMessages",JSON.stringify(messages));
   renderChat();
- },1000);
+ },800);
 }
 
-/* FILES */
+/* ---------- FILES ---------- */
 
 function openFiles(){
  state="files";
@@ -192,23 +166,23 @@ function openFiles(){
  <br>Factory default files`;
 }
 
-/* SNAKE */
+/* ---------- SNAKE ---------- */
 
 function startSnake(){
  state="snake";
- display.innerHTML="<canvas id='game' width='180' height='180'></canvas>";
+ display.innerHTML="<canvas id='game' width='200' height='200'></canvas>";
  let canvas=document.getElementById("game");
  let ctx=canvas.getContext("2d");
 
  let snake=[{x:5,y:5}];
  let food={x:2,y:2};
  let dx=1,dy=0;
- let size=15;
+ let size=20;
  let score=0;
 
  let loop=setInterval(()=>{
-  ctx.fillStyle="#0f1f0f";
-  ctx.fillRect(0,0,180,180);
+  ctx.fillStyle="#000";
+  ctx.fillRect(0,0,200,200);
 
   snake.unshift({x:snake[0].x+dx,y:snake[0].y+dy});
 
@@ -220,7 +194,7 @@ function startSnake(){
    snake.pop();
   }
 
-  if(snake[0].x<0||snake[0].x>11||snake[0].y<0||snake[0].y>11){
+  if(snake[0].x<0||snake[0].x>9||snake[0].y<0||snake[0].y>9){
    clearInterval(loop);
    if(score>snakeHigh){
     snakeHigh=score;
@@ -229,7 +203,7 @@ function startSnake(){
    home();
   }
 
-  ctx.fillStyle="#33ff66";
+  ctx.fillStyle="#ffffff";
   snake.forEach(s=>{
    ctx.fillRect(s.x*size,s.y*size,size-2,size-2);
   });
@@ -245,3 +219,4 @@ function startSnake(){
   if(e.key==="ArrowRight"){dx=1;dy=0;}
  };
 }
+
